@@ -101,6 +101,10 @@ img { display:block; }
 .masonry-item:hover img { transform:scale(1.02); }
 .masonry-item .delete-photo { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); border:none; color:#ef4444; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; z-index:5; }
 .masonry-item:hover .delete-photo { display:flex; }
+.masonry-item .download-photo { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.6); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; z-index:5; }
+.masonry-item:hover .download-photo { display:flex; }
+.masonry-item .set-cover { position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.6); border:none; color:#fff; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; display:none; align-items:center; z-index:5; font-family:inherit; }
+.masonry-item:hover .set-cover { display:flex; }
 
 /* ===== LIGHTBOX ===== */
 .lightbox { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; }
@@ -311,6 +315,8 @@ const r2Storage = new R2Storage(GALLERY_CONFIG);
 const STORAGE_KEY = 'insiders-gallery-data';
 const AUTH_KEY = 'insiders-gallery-auth';
 const PASSWORD = GALLERY_CONFIG.PASSWORD;
+const ADMIN_PASSWORD = GALLERY_CONFIG.ADMIN_PASSWORD;
+let isAdmin = false;
 
 function loadData() {
   try {
@@ -342,11 +348,19 @@ function showToast(message, type = 'info') {
 // AUTH
 // ============================================================
 function checkAuth() {
-  if (localStorage.getItem(AUTH_KEY) === PASSWORD) showApp();
+  const stored = localStorage.getItem(AUTH_KEY);
+  if (stored === ADMIN_PASSWORD) { isAdmin = true; showApp(); }
+  else if (stored === PASSWORD) { isAdmin = false; showApp(); }
 }
 
 function attemptLogin() {
-  if (document.getElementById('gatePw').value === PASSWORD) {
+  const pw = document.getElementById('gatePw').value;
+  if (pw === ADMIN_PASSWORD) {
+    isAdmin = true;
+    localStorage.setItem(AUTH_KEY, ADMIN_PASSWORD);
+    showApp();
+  } else if (pw === PASSWORD) {
+    isAdmin = false;
     localStorage.setItem(AUTH_KEY, PASSWORD);
     showApp();
   } else {
@@ -359,6 +373,10 @@ function attemptLogin() {
 function showApp() {
   document.getElementById('gate').style.display = 'none';
   document.getElementById('app').classList.add('active');
+  // Hide admin-only buttons for members
+  if (!isAdmin) {
+    document.getElementById('newEventBtn').style.display = 'none';
+  }
   renderEvents();
 }
 
@@ -471,45 +489,92 @@ function renderMasonry() {
     
     item.innerHTML = `
       <img src="${photoUrl}" alt="" loading="lazy" onload="this.classList.add('loaded')">
-      <button class="delete-photo" title="Remove photo" data-index="${i}">&times;</button>
+      ${isAdmin ? '<button class="set-cover" title="Set as cover">★ Cover</button>' : ''}
+      ${isAdmin ? `<button class="delete-photo" title="Remove photo" data-index="${i}">&times;</button>` : ''}
+      <button class="download-photo" title="Download photo">↓</button>
     `;
     item.querySelector('img').addEventListener('click', () => openLightbox(i));
-    item.querySelector('.delete-photo').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (confirm('Remove this photo?')) {
-        try {
-          // Delete from R2 if it's not a fallback/localStorage photo
-          if (photo.key && !photo.fallback) {
-            await r2Storage.deletePhoto(photo.key);
+    
+    // Set cover button (admin only)
+    if (isAdmin && item.querySelector('.set-cover')) {
+      item.querySelector('.set-cover').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        currentEvent.cover = photoUrl;
+        saveData(galleryData);
+        await r2Storage.saveMetadata(currentEvent.id, {
+          name: currentEvent.name, date: currentEvent.date, city: currentEvent.city,
+          host: currentEvent.host, photographer: currentEvent.photographer,
+          cover: currentEvent.cover, photoCount: currentEvent.photos.length, photos: currentEvent.photos
+        });
+        showToast('Cover photo updated', 'success');
+      });
+    }
+    
+    // Delete button (admin only)
+    if (isAdmin && item.querySelector('.delete-photo')) {
+      item.querySelector('.delete-photo').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (confirm('Remove this photo?')) {
+          try {
+            // Delete from R2 if it's not a fallback/localStorage photo
+            if (photo.key && !photo.fallback) {
+              await r2Storage.deletePhoto(photo.key);
+            }
+            
+            currentEvent.photos.splice(i, 1);
+            if (currentEvent.cover === photoUrl) {
+              currentEvent.cover = currentEvent.photos[0]?.url || currentEvent.photos[0]?.data || '';
+            }
+            
+            // Update metadata in R2
+            await r2Storage.saveMetadata(currentEvent.id, {
+              name: currentEvent.name,
+              date: currentEvent.date,
+              city: currentEvent.city,
+              host: currentEvent.host,
+              photographer: currentEvent.photographer,
+              cover: currentEvent.cover,
+              photoCount: currentEvent.photos.length,
+              photos: currentEvent.photos
+            });
+            
+            saveData(galleryData);
+            renderMasonry();
+            document.getElementById('detailMeta').querySelector('span:last-child').textContent = `${currentEvent.photos.length} photos`;
+            showToast('Photo removed', 'success');
+          } catch (error) {
+            console.error('Delete error:', error);
+            showToast('Failed to delete photo', 'error');
           }
-          
-          currentEvent.photos.splice(i, 1);
-          if (currentEvent.cover === photoUrl) {
-            currentEvent.cover = currentEvent.photos[0]?.url || currentEvent.photos[0]?.data || '';
-          }
-          
-          // Update metadata in R2
-          await r2Storage.saveMetadata(currentEvent.id, {
-            name: currentEvent.name,
-            date: currentEvent.date,
-            city: currentEvent.city,
-            host: currentEvent.host,
-            photographer: currentEvent.photographer,
-            cover: currentEvent.cover,
-            photoCount: currentEvent.photos.length,
-            photos: currentEvent.photos
-          });
-          
-          saveData(galleryData);
-          renderMasonry();
-          document.getElementById('detailMeta').querySelector('span:last-child').textContent = `${currentEvent.photos.length} photos`;
-          showToast('Photo removed', 'success');
-        } catch (error) {
-          console.error('Delete error:', error);
-          showToast('Failed to delete photo', 'error');
         }
+      });
+    }
+    
+    // Download button (all users)
+    item.querySelector('.download-photo').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const response = await fetch(photoUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `insiders-${currentEvent.id}-${i + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        // Fallback: direct download
+        const a = document.createElement('a');
+        a.href = photoUrl;
+        a.download = `insiders-${currentEvent.id}-${i + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }
     });
+    
     masonry.appendChild(item);
   });
 }
@@ -733,8 +798,11 @@ document.getElementById('uploadSubmitBtn').addEventListener('click', async () =>
 
   for (const file of pendingFiles) {
     try {
+      // Compress image before upload
+      const compressedFile = await compressImage(file);
+      
       // Upload to R2 via Worker
-      const result = await r2Storage.uploadPhoto(currentEvent.id, file);
+      const result = await r2Storage.uploadPhoto(currentEvent.id, compressedFile);
       
       currentEvent.photos.push({
         key: result.key,
@@ -788,6 +856,57 @@ function readFileAsDataURL(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============================================================
+// PHOTO COMPRESSION
+// ============================================================
+async function compressImage(file, maxDim = 2000, quality = 0.8) {
+  // Skip compression for small files (under 1MB)
+  if (file.size < 1024 * 1024) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Calculate new dimensions
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        // Create canvas and compress
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to blob
+        canvas.toBlob((blob) => {
+          // Create new File object from blob
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          resolve(compressedFile);
+        }, 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
     reader.readAsDataURL(file);
   });
 }
