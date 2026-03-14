@@ -39,7 +39,7 @@ class R2Storage {
       // Return full URL
       return {
         ...result,
-        url: this.workerUrl + result.url
+        url: result.url.startsWith('http') ? result.url : this.workerUrl + result.url
       };
     } catch (error) {
       this.log('Upload error:', error);
