@@ -332,6 +332,48 @@ function saveData(data) {
 
 let galleryData = loadData();
 
+// Sync events from R2 on load
+async function syncFromR2() {
+  try {
+    const response = await fetch(`${GALLERY_CONFIG.WORKER_URL}/events`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data.events || data.events.length === 0) return;
+    
+    // Filter to only insiders events (prefix match)
+    const prefix = GALLERY_CONFIG.PREFIX || 'insiders-events/';
+    const insidersEvents = data.events.filter(e => e.id && e.id.startsWith(prefix));
+    
+    const localIds = new Set(galleryData.events.map(e => e.id));
+    let changed = false;
+    
+    for (const event of insidersEvents) {
+      // Strip prefix for local ID matching
+      const localId = event.id.replace(prefix, '');
+      if (!localIds.has(localId) && !localIds.has(event.id)) {
+        event.id = localId;
+        galleryData.events.push(event);
+        changed = true;
+      } else {
+        const local = galleryData.events.find(e => e.id === localId || e.id === event.id);
+        if (local && event.photos && (!local.photos || local.photos.length < event.photos.length)) {
+          local.photos = event.photos;
+          local.cover = event.cover || local.cover;
+          local.photoCount = event.photoCount || event.photos.length;
+          changed = true;
+        }
+      }
+    }
+    
+    if (changed) {
+      saveData(galleryData);
+      renderEvents();
+    }
+  } catch (e) {
+    console.log('R2 sync skipped:', e.message);
+  }
+}
+
 // ============================================================
 // TOAST
 // ============================================================
@@ -378,6 +420,7 @@ function showApp() {
     document.getElementById('newEventBtn').style.display = 'none';
   }
   renderEvents();
+  syncFromR2();
 }
 
 document.getElementById('gateBtn').addEventListener('click', attemptLogin);
