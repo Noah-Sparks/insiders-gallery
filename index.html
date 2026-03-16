@@ -332,6 +332,18 @@ function saveData(data) {
 
 let galleryData = loadData();
 
+// Auto-deduplicate events
+(function dedup() {
+  const seen = new Set();
+  const before = galleryData.events.length;
+  galleryData.events = galleryData.events.filter(e => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+  if (galleryData.events.length < before) saveData(galleryData);
+})();
+
 // Sync events from R2 on load
 async function syncFromR2() {
   try {
