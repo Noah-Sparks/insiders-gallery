@@ -96,8 +96,7 @@ img { display:block; }
 /* Masonry Grid */
 .masonry { columns:3; column-gap:12px; padding-top:8px; }
 .masonry-item { break-inside:avoid; margin-bottom:12px; border-radius:var(--radius); overflow:hidden; cursor:pointer; position:relative; }
-.masonry-item img { width:100%; display:block; opacity:0; height:0; transition:opacity 0.4s ease, transform 0.3s ease; }
-.masonry-item img.loaded { height:auto; }
+.masonry-item img { width:100%; display:block; opacity:0; transition:opacity 0.4s ease, transform 0.3s ease; }
 .masonry-item img.loaded { opacity:1; }
 .masonry-item:hover img { transform:scale(1.02); }
 .masonry-item .delete-photo { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); border:none; color:#ef4444; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; z-index:5; }
@@ -621,7 +620,7 @@ function renderMasonry() {
     const photoUrl = photo.url || photo.data || '';
     
     item.innerHTML = `
-      <img src="${photoUrl}" alt="" loading="lazy" onload="this.classList.add('loaded')">
+      <img src="${photoUrl}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" onload="this.classList.add('loaded')">
       ${isAdmin ? '<button class="set-cover" title="Set as cover">★ Cover</button>' : ''}
       ${isAdmin ? `<button class="delete-photo" title="Remove photo" data-index="${i}">&times;</button>` : ''}
       <button class="download-photo" title="Download photo">↓</button>
