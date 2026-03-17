@@ -174,7 +174,7 @@ img { display:block; }
   .lightbox-next { right:12px; }
   .modal { padding:24px 20px; margin:10px; }
 }
-@media (max-width:500px) { .masonry { columns:1; } }
+@media (max-width:400px) { .masonry { columns:1; } }
 
 .fade-in { animation:fadeIn 0.3s ease; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -620,7 +620,7 @@ function renderMasonry() {
     const photoUrl = photo.url || photo.data || '';
     
     item.innerHTML = `
-      <img src="${photoUrl}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" onload="this.classList.add('loaded')">
+      <img src="${photoUrl}" alt="" loading="lazy" onload="this.classList.add('loaded')">
       ${isAdmin ? '<button class="set-cover" title="Set as cover">★ Cover</button>' : ''}
       ${isAdmin ? `<button class="delete-photo" title="Remove photo" data-index="${i}">&times;</button>` : ''}
       <button class="download-photo" title="Download photo">↓</button>
