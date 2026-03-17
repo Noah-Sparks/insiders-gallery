@@ -96,7 +96,8 @@ img { display:block; }
 /* Masonry Grid */
 .masonry { columns:3; column-gap:12px; padding-top:8px; }
 .masonry-item { break-inside:avoid; margin-bottom:12px; border-radius:var(--radius); overflow:hidden; cursor:pointer; position:relative; }
-.masonry-item img { width:100%; display:block; opacity:0; transition:opacity 0.4s ease, transform 0.3s ease; }
+.masonry-item img { width:100%; display:block; opacity:0; height:0; transition:opacity 0.4s ease, transform 0.3s ease; }
+.masonry-item img.loaded { height:auto; }
 .masonry-item img.loaded { opacity:1; }
 .masonry-item:hover img { transform:scale(1.02); }
 .masonry-item .delete-photo { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); border:none; color:#ef4444; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; z-index:5; }
@@ -165,7 +166,7 @@ img { display:block; }
   .events-grid { grid-template-columns:1fr; padding:20px 16px 60px; }
   .header { padding:20px 16px 0; }
   .detail { padding:0 16px 60px; }
-  .masonry { columns:1; column-gap:8px; }
+  .masonry { columns:2; column-gap:8px; }
   .masonry-item { margin-bottom:8px; }
   .detail-title { font-size:20px; }
   .gate-card { padding:36px 28px; }
